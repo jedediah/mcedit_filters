@@ -24,7 +24,10 @@ def translateTeleportCoord(coord, delta):
 
 def perform(level, box, options):
     delta = (options["Delta X"], options["Delta Y"], options["Delta Z"])
-    debug = options["Debug"]
+
+    def debug(msg):
+        if options["Debug"]:
+            print msg
 
     for (chunk, _, _) in level.getChunkSlices(box):
         for tile in chunk.TileEntities:
@@ -50,27 +53,39 @@ def perform(level, box, options):
                                 value = int(value)
                                 if coord:
                                     args[i] = "{0}={1}".format(coord, value + delta[('x','y','z').index(coord)])
-                                    if debug:
-                                        print "Translating explicit coord {0}={1}".format(coord, value)
-                                else:
+                                    debug("Translating explicit coord {0}={1}".format(coord, value))
+                                elif i < 3:
                                     args[i] = str(value + delta[index])
-                                    if debug:
-                                        print "Translating implicit coord {0}={1}".format(('x','y','z')[index], value)
+                                    debug("Translating implicit coord {0}={1}".format(('x','y','z')[index], value))
                                     index += 1
 
                         return "@{0}[{1}]".format(prefix, ",".join(args))
 
                     command = re.sub(r'(?:^|(?<=\s))@([pra])\[([^\]]*)\](?:(?=\s)|$)', translateSelector, command)
 
-                    if re.match(r'^\s*/?(?:tp|spawnpoint)', command):
-                        words = re.split(r'\s+', command)
-                        if len(words) == 5:
-                            if debug:
-                                print "Translating spawnpoint/tp coords: {0}".format(" ".join(words[2:5]))
-                            for i in xrange(3):
-                                words[2+i] = translateTeleportCoord(words[2+i], delta[i])
-                            command = " ".join(words)
+                    words = re.split(r'\s+', command)
+                    first = re.sub(r'^/', '', words[0])
 
+                    def translate(offset):
+                        debug("Translating /{0} coords: {1}".format(first, " ".join(words[offset:offset+3])))
+
+                        for axis in xrange(3):
+                            coord = words[offset+axis]
+                            if coord[0] != '~':
+                                if '.' in coord:
+                                    coord = str(float(coord) + delta[axis])
+                                else:
+                                    coord = str(int(coord) + delta[axis])
+                            words[offset+axis] = coord
+
+                    if first == 'tp' and len(words) == 5:
+                        translate(2)
+                    elif first == 'spawnpoint' and len(words) == 5:
+                        translate(2)
+                    elif first == 'playsound' and len(words) >= 6:
+                        translate(3)
+
+                    command = " ".join(words)
                     if command != originalCommand:
                         tile["Command"] = TAG_String(command)
                         chunk.dirty = True
