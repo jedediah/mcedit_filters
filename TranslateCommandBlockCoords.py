@@ -37,40 +37,44 @@ def perform(level, box, options):
                 if not command:
                     continue
 
-                def translateSelector(match):
-                    index = 0
-                    prefix = match.group(1)
-                    args = re.split(r'\s*,\s*', match.group(2))
+                try:
+                    def translateSelector(match):
+                        index = 0
+                        prefix = match.group(1)
+                        args = re.split(r'\s*,\s*', match.group(2))
 
-                    for i in xrange(len(args)):
-                        m = re.match(r'(?:(x|y|z)=)?(-?\d+)', args[i])
-                        if m:
-                            coord, value = m.groups()
-                            value = int(value)
-                            if coord:
-                                args[i] = "{0}={1}".format(coord, value + delta[('x','y','z').index(coord)])
-                                if debug:
-                                    print "Translating explicit coord {0}={1}".format(coord, value)
-                            else:
-                                args[i] = str(value + delta[index])
-                                if debug:
-                                    print "Translating implicit coord {0}={1}".format(('x','y','z')[index], value)
-                                index += 1
+                        for i in xrange(len(args)):
+                            m = re.match(r'(?:(x|y|z)=)?(-?\d+)', args[i])
+                            if m:
+                                coord, value = m.groups()
+                                value = int(value)
+                                if coord:
+                                    args[i] = "{0}={1}".format(coord, value + delta[('x','y','z').index(coord)])
+                                    if debug:
+                                        print "Translating explicit coord {0}={1}".format(coord, value)
+                                else:
+                                    args[i] = str(value + delta[index])
+                                    if debug:
+                                        print "Translating implicit coord {0}={1}".format(('x','y','z')[index], value)
+                                    index += 1
 
-                    return "@{0}[{1}]".format(prefix, ",".join(args))
+                        return "@{0}[{1}]".format(prefix, ",".join(args))
 
-                command = re.sub(r'(?:^|(?<=\s))@([pra])\[([^\]]*)\](?:(?=\s)|$)', translateSelector, command)
+                    command = re.sub(r'(?:^|(?<=\s))@([pra])\[([^\]]*)\](?:(?=\s)|$)', translateSelector, command)
 
-                if re.match(r'^\s*/?(?:tp|spawnpoint)', command):
-                    words = re.split(r'\s+', command)
-                    if len(words) == 5:
-                        if debug:
-                            print "Translating spawnpoint/tp coords: {0}".format(" ".join(words[2:5]))
-                        for i in xrange(3):
-                            words[2+i] = translateTeleportCoord(words[2+i], delta[i])
-                        command = " ".join(words)
+                    if re.match(r'^\s*/?(?:tp|spawnpoint)', command):
+                        words = re.split(r'\s+', command)
+                        if len(words) == 5:
+                            if debug:
+                                print "Translating spawnpoint/tp coords: {0}".format(" ".join(words[2:5]))
+                            for i in xrange(3):
+                                words[2+i] = translateTeleportCoord(words[2+i], delta[i])
+                            command = " ".join(words)
 
-                if command != originalCommand:
-                    tile["Command"] = TAG_String(command)
-                    chunk.dirty = True
+                    if command != originalCommand:
+                        tile["Command"] = TAG_String(command)
+                        chunk.dirty = True
+                except Exception as ex:
+                    print "Failed to translate the command block at {0} with the following command:\n{1}\n".format(pos, originalCommand)
+                    raise
 
