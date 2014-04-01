@@ -10,11 +10,23 @@ inputs = (
 
 def perform(level, box, options):
     age = options[inputs[0][0]]
+    worldTime = level.root_tag["Data"]["Time"].value
+
     for (chunk, _, _) in level.getChunkSlices(box):
-        if "InhabitedTime" in chunk.root_tag["Level"]:
-            if chunk.root_tag["Level"]["InhabitedTime"].value != age:
-                chunk.root_tag["Level"]["InhabitedTime"].value = age
+        chunkLevel = chunk.root_tag["Level"]
+
+        if "InhabitedTime" in chunkLevel:
+            if chunkLevel["InhabitedTime"].value != age:
+                chunkLevel["InhabitedTime"].value = age
                 chunk.dirty = True
         else:
-            chunk.root_tag["Level"]["InhabitedTime"] = nbt.TAG_Long(age)
+            chunkLevel["InhabitedTime"] = nbt.TAG_Long(age)
+            chunk.dirty = True
+
+        if "LastUpdate" in chunkLevel:
+            if chunkLevel["LastUpdate"].value != worldTime:
+                chunkLevel["LastUpdate"].value = worldTime
+                chunk.dirty = True
+        else:
+            chunkLevel["LastUpdate"] = nbt.TAG_Long(worldTime)
             chunk.dirty = True

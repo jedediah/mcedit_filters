@@ -1,5 +1,7 @@
-
-# Coded by last_username
+# coding unicode-escape
+# Feel free to modify and use this filter however you wish. If you do,
+# please give credit to SethBling.
+# http://youtube.com/SethBling
 
 import re
 from pymclevel.nbt import TAG_String
@@ -13,6 +15,8 @@ inputs = (
     ("Debug", False),
 )
 
+formatCode = unichr(167)
+
 def translateTeleportCoord(coord, delta):
     if coord[0] == '~':
         return coord
@@ -24,10 +28,7 @@ def translateTeleportCoord(coord, delta):
 
 def perform(level, box, options):
     delta = (options["Delta X"], options["Delta Y"], options["Delta Z"])
-
-    def debug(msg):
-        if options["Debug"]:
-            print msg
+    debug = options["Debug"]
 
     for (chunk, _, _) in level.getChunkSlices(box):
         for tile in chunk.TileEntities:
@@ -40,56 +41,42 @@ def perform(level, box, options):
                 if not command:
                     continue
 
-                try:
-                    def translateSelector(match):
-                        index = 0
-                        prefix = match.group(1)
-                        args = re.split(r'\s*,\s*', match.group(2))
+                def translateSelector(match):
+                    index = 0
+                    # selector = match.group()
+                    prefix = match.group(1)
+                    args = re.split(r'\s*,\s*', match.group(2))
 
-                        for i in xrange(len(args)):
-                            m = re.match(r'(?:(x|y|z)=)?(-?\d+)', args[i])
-                            if m:
-                                coord, value = m.groups()
-                                value = int(value)
-                                if coord:
-                                    args[i] = "{0}={1}".format(coord, value + delta[('x','y','z').index(coord)])
-                                    debug("Translating explicit coord {0}={1}".format(coord, value))
-                                elif i < 3:
-                                    args[i] = str(value + delta[index])
-                                    debug("Translating implicit coord {0}={1}".format(('x','y','z')[index], value))
-                                    index += 1
+                    for i in xrange(len(args)):
+                        m = re.match(r'(?:(x|y|z)=)?(-?\d+)', args[i])
+                        if m:
+                            coord, value = m.groups()
+                            value = int(value)
+                            if coord:
+                                args[i] = "{0}={1}".format(coord, value + delta[('x','y','z').index(coord)])
+                                if debug:
+                                    print "Translating explicit coord {0}={1}".format(coord, value)
+                            else:
+                                args[i] = str(value + delta[index])
+                                if debug:
+                                    print "Translating implicit coord {0}={1}".format(('x','y','z')[index], value)
+                                index += 1
 
-                        return "@{0}[{1}]".format(prefix, ",".join(args))
+                    return "@{0}[{1}]".format(prefix, ",".join(args))
+                    # return selector[:match.start(1)] + ",".join(args) + selector[match.end(1):]
 
-                    command = re.sub(r'(?:^|(?<=\s))@([pra])\[([^\]]*)\](?:(?=\s)|$)', translateSelector, command)
+                command = re.sub(r'(?:^|(?<=\s))@([pra])\[([^\]]*)\](?:(?=\s)|$)', translateSelector, command)
 
+                if re.match(r'^\s*/?(?:tp|spawnpoint)', command):
                     words = re.split(r'\s+', command)
-                    first = re.sub(r'^/', '', words[0])
+                    if len(words) == 5:
+                        if debug:
+                            print "Translating spawnpoint/tp coords: {0}".format(" ".join(words[2:5]))
+                        for i in xrange(3):
+                            words[2+i] = translateTeleportCoord(words[2+i], delta[i])
+                        command = " ".join(words)
 
-                    def translate(offset):
-                        debug("Translating /{0} coords: {1}".format(first, " ".join(words[offset:offset+3])))
-
-                        for axis in xrange(3):
-                            coord = words[offset+axis]
-                            if coord[0] != '~':
-                                if '.' in coord:
-                                    coord = str(float(coord) + delta[axis])
-                                else:
-                                    coord = str(int(coord) + delta[axis])
-                            words[offset+axis] = coord
-
-                    if first == 'tp' and len(words) == 5:
-                        translate(2)
-                    elif first == 'spawnpoint' and len(words) == 5:
-                        translate(2)
-                    elif first == 'playsound' and len(words) >= 6:
-                        translate(3)
-
-                    command = " ".join(words)
-                    if command != originalCommand:
-                        tile["Command"] = TAG_String(command)
-                        chunk.dirty = True
-                except Exception as ex:
-                    print "Failed to translate the command block at {0} with the following command:\n{1}\n".format(pos, originalCommand)
-                    raise
+                if command != originalCommand:
+                    tile["Command"] = TAG_String(command)
+                    chunk.dirty = True
 

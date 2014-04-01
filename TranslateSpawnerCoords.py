@@ -1,6 +1,4 @@
 
-# Coded by last_username
-
 displayName = "Translate Spawner Coordinates"
 
 inputs = (
@@ -25,7 +23,8 @@ def translateEntity(entityId, entityData, delta, debug=False):
     if entityId == 'MinecartSpawner':
         changed = translateSpawner(entityData, delta, debug) or changed
     elif (entityId == 'FallingSand' and
-          (entityData['Tile'].value == 52 or entityData['TileID'].value == 52) and
+          (('Tile' in entityData and entityData['Tile'].value == 52) or
+           ('TileID' in entityData and entityData['TileID'].value == 52)) and
           'TileEntityData' in entityData):
         changed = translateSpawner(entityData['TileEntityData'], delta, debug) or changed
 
